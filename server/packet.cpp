@@ -1,31 +1,39 @@
-#include "packet.h"
-#include <cstring>
-#include <cstdlib>
+#include "server.h"
+#include "utils/logger.h"
+#include <iostream>
+#include <csignal>
+#include <chrono>
+#include <thread>
 
-// Constructor initializes payload pointer and sets fixed tail marker.
-Packet::Packet() : payload(nullptr), payloadSize(0) {
-    tail.endMarker = "<EOF>"; // Fixed marker indicating end of packet.
+// Global pointer to allow signal handling for graceful shutdown.
+Server* serverInstance = nullptr;
+
+// Signal handler to stop the server.
+void signalHandler(int signum) {
+    if (serverInstance) {
+        serverInstance->stop();
+    }
+    exit(signum);
 }
 
-// Destructor frees the dynamically allocated payload.
-Packet::~Packet() {
-    if (payload) {
-        free(payload);
-    }
-}
+int main() {
+    // Setup signal handlers for graceful shutdown.
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
 
-// Construct the packet with header, payload, and tail information.
-void Packet::constructPacket(const std::string& src, const std::string& dst, 
-                             const std::string& protocol, uint32_t pktNum, 
-                             const char* data, size_t size, const std::string& errorCode) {
-    header.src = src;
-    header.dst = dst;
-    header.protocol = protocol;
-    header.pktNum = pktNum;
-    payloadSize = size;
-    payload = (char*)malloc(size);
-    if (payload && data) {
-        memcpy(payload, data, size);
+    int port = 12345; // Example port number.
+    Server server(port);
+    serverInstance = &server;
+
+    if (!server.start()) {
+        std::cerr << "Failed to start server." << std::endl;
+        return -1;
     }
-    tail.errorCode = errorCode;
+
+    // Main loop: the server is running and handling clients in separate threads.
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    return 0;
 }
