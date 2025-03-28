@@ -1,0 +1,10 @@
+^E:\SOFTWARESAFETYRELIABILITYPROJECT\CLIENT\BUILD\CMAKEFILES\37F5CC8F0B337EE628553CA83824AFC0\GENERATE.STAMP.RULE
+setlocal
+C:\Users\Lance\Downloads\cmake-3.28.2-windows-x86_64\cmake-3.28.2-windows-x86_64\bin\cmake.exe -SE:/SoftwareSafetyReliabilityProject/client -BE:/SoftwareSafetyReliabilityProject/client/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file E:/SoftwareSafetyReliabilityProject/client/build/Project.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
