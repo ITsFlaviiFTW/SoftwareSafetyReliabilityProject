@@ -3,23 +3,30 @@
 
 #include <string>
 
-using namespace std;
-
 struct Technician {
     int TechnicianID;
-    string FirstName;
-    string LastName;
-    string Email;
-    string Password;
-    string CreatedAt;
+    std::string FirstName;
+    std::string LastName;
+    std::string Email;
+    std::string Password;
+    std::string CreatedAt;
 };
 
 struct Aircraft {
     int AircraftID;
-    string TailNumber;
-    string Model;
-    string Status;
-    string LastUpdated;
+    std::string TailNumber;
+    std::string Model;
+    std::string Status;
+    std::string LastUpdated;
+};
+
+struct Ticket {
+    int TicketID;
+    int AircraftID;
+    std::string TechnicianEmail;
+    std::string Name;
+    std::string Description;
+    std::string CreatedAt;
 };
 
 #endif // MODELS_H

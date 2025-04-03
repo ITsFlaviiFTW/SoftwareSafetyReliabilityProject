@@ -5,7 +5,6 @@
 #include <vector>
 #include "models.h"
 
-using namespace std;
 using namespace mysqlx;
 
 class Database {
@@ -15,13 +14,20 @@ public:
     bool connect();
     void close();
 
-    bool insertTechnician(const Technician& tech);
-    bool insertAircraft(const Aircraft& aircraft);
-    vector<Technician> getTechnicians();
-    vector<Aircraft> getAircrafts();
+    bool insertTechnician(const Technician&);
+    bool insertAircraft(const Aircraft&);
+    bool Database::insertTicket(const Ticket&);
+    std::vector<Technician> getTechnicians();
+    std::vector<Aircraft> getAircrafts();
+    std::vector<Ticket> getTickets();
+    std::vector<Ticket> getTicketsByAircraft(int);
+    std::vector<Ticket> getTicketsByTechnician(const std::string&);
+    
+
+    Technician getTechnicianByEmail(const std::string&);
+    Aircraft getAircraftByID(int aircraftID);
 
 private:
-    // Using pointers so we can manage connection lifetime explicitly.
     Session* session;
     Schema* schema;
 };
