@@ -1,7 +1,9 @@
+// server.h
 #ifndef SERVER_H
 #define SERVER_H
 
 #include "state_machine.h"
+#include "database/database.h" // Including Isaac's database header
 #include <string>
 #include <thread>
 #include <vector>
@@ -24,6 +26,7 @@ private:
     std::atomic<bool> running;     // Flag to control the server loop.
     StateMachine stateMachine;     // Manages server state.
     std::vector<std::thread> clientThreads;  // Threads for handling clients.
+    Database db;                   // Database instance (from Isaac's code)
 
     // Function to accept new client connections.
     void acceptClients();

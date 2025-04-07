@@ -30,74 +30,81 @@ Server::~Server() {
 
 // Start the server, initializing Winsock on Windows.
 bool Server::start() {
-#ifdef _WIN32
-    // Initialize Winsock.
-    WSADATA wsaData;
-    int wsaInit = WSAStartup(MAKEWORD(2,2), &wsaData);
-    if (wsaInit != 0) {
-        Logger::getInstance().log("WSAStartup failed: " + std::to_string(wsaInit));
-        return false;
+    #ifdef _WIN32
+        // Initialize Winsock.
+        WSADATA wsaData;
+        int wsaInit = WSAStartup(MAKEWORD(2,2), &wsaData);
+        if (wsaInit != 0) {
+            Logger::getInstance().log("WSAStartup failed: " + std::to_string(wsaInit));
+            return false;
+        }
+    #endif
+    
+        // Create a TCP socket.
+        serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    #ifdef _WIN32
+        if (serverSocket == INVALID_SOCKET) {
+            Logger::getInstance().log("Error: Cannot create socket");
+            return false;
+        }
+    #else
+        if (serverSocket < 0) {
+            Logger::getInstance().log("Error: Cannot create socket");
+            return false;
+        }
+    #endif
+    
+        int opt = 1;
+    #ifdef _WIN32
+        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+    #else
+        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    #endif
+    
+        struct sockaddr_in serverAddr;
+        std::memset(&serverAddr, 0, sizeof(serverAddr));
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+        serverAddr.sin_port = htons(port);
+    
+    #ifdef _WIN32
+        if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+            Logger::getInstance().log("Error: Bind failed");
+            return false;
+        }
+    #else
+        if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+            Logger::getInstance().log("Error: Bind failed");
+            return false;
+        }
+    #endif
+    
+    #ifdef _WIN32
+        if (listen(serverSocket, 10) == SOCKET_ERROR) {
+            Logger::getInstance().log("Error: Listen failed");
+            return false;
+        }
+    #else
+        if (listen(serverSocket, 10) < 0) {
+            Logger::getInstance().log("Error: Listen failed");
+            return false;
+        }
+    #endif
+    
+        // Connect to the database.
+        if (!db.connect()) {
+            Logger::getInstance().log("Database connection failed.");
+            return false;
+        }
+    
+        running = true;
+        stateMachine.transition(ServerState::Idle);
+        // Start a detached thread to accept clients.
+        std::thread(&Server::acceptClients, this).detach();
+        Logger::getInstance().log("Server started on port " + std::to_string(port));
+        return true;
     }
-#endif
-
-    // Create a TCP socket.
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-#ifdef _WIN32
-    if (serverSocket == INVALID_SOCKET) {
-        Logger::getInstance().log("Error: Cannot create socket");
-        return false;
-    }
-#else
-    if (serverSocket < 0) {
-        Logger::getInstance().log("Error: Cannot create socket");
-        return false;
-    }
-#endif
-
-    int opt = 1;
-#ifdef _WIN32
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-#else
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-#endif
-
-    struct sockaddr_in serverAddr;
-    std::memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(port);
-
-#ifdef _WIN32
-    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        Logger::getInstance().log("Error: Bind failed");
-        return false;
-    }
-#else
-    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-        Logger::getInstance().log("Error: Bind failed");
-        return false;
-    }
-#endif
-
-#ifdef _WIN32
-    if (listen(serverSocket, 10) == SOCKET_ERROR) {
-        Logger::getInstance().log("Error: Listen failed");
-        return false;
-    }
-#else
-    if (listen(serverSocket, 10) < 0) {
-        Logger::getInstance().log("Error: Listen failed");
-        return false;
-    }
-#endif
-
-    running = true;
-    stateMachine.transition(ServerState::Idle);
-    // Start a detached thread to accept clients.
-    std::thread(&Server::acceptClients, this).detach();
-    Logger::getInstance().log("Server started on port " + std::to_string(port));
-    return true;
-}
+    
 
 // Stop the server and clean up resources.
 void Server::stop() {
@@ -175,19 +182,34 @@ void Server::handleClient(int clientSocket) {
             break;
         }
 
-        // Build a packet from received data.
+        // Convert received data to a string to interpret commands.
+        std::string request(buffer, bytesRead);
+        Logger::getInstance().log("Received request: " + request);
+
+        // For example, if the client sends "GET_AIRCRAFTS", retrieve aircrafts from the database.
+        if (request.find("GET_AIRCRAFTS") != std::string::npos) {
+            auto aircrafts = db.getAircrafts();
+            // TODO: Serialize aircrafts into a string (e.g., JSON) to send back.
+            std::string response = "AIRCRAFTS_DATA";  // Replace with actual serialization.
+#ifdef _WIN32
+            send(clientSocket, response.c_str(), response.size(), 0);
+#else
+            write(clientSocket, response.c_str(), response.size());
+#endif
+        }
+        // You can add additional command handling (e.g., INSERT_AIRCRAFT, GET_TECHNICIANS, etc.)
+        // and call the corresponding db functions (e.g., db.insertAircraft(aircraft), db.getTechnicians(), etc.)
+
+        // Log the packet (fulfilling REQ-LOG-010 and REQ-LOG-020)
+        // Here, for simplicity, we use a dummy Packet.
         Packet pkt;
         pkt.constructPacket("Client", "Server", "TCP", 0, buffer, bytesRead, "OK");
-
-        // Log the received packet.
         std::string logEntry = "RX | src:" + pkt.header.src +
                                " | dst:" + pkt.header.dst +
                                " | protocol:" + pkt.header.protocol +
                                " | pkt#:" + std::to_string(pkt.header.pktNum) +
                                " | status:" + pkt.tail.errorCode;
         Logger::getInstance().log(logEntry);
-
-        // TODO: Process the packet and send responses as needed.
     }
 #ifdef _WIN32
     closesocket(clientSocket);
